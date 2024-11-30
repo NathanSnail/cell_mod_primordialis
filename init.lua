@@ -100,7 +100,7 @@ M.post = function(api, config)
 		material_counters[usable_c] = mat_c
 		local spawn_rate_cutoff = ffi.cast("float *", 0x1405df570)
 		print(usable_c, " ", spawn_rate_cutoff[usable_c - 1], " ", spawn_rate_cutoff[usable_c], "\n")
-		spawn_rate_cutoff[usable_c] = spawn_rate_cutoff[usable_c - 1]
+		spawn_rate_cutoff[usable_c] = spawn_rate_cutoff[usable_c - 1] + 100
 		print(usable_c, " ", spawn_rate_cutoff[usable_c - 1], " ", spawn_rate_cutoff[usable_c], "\n")
 		print(spawn_rate_cutoff + usable_c, "\n")
 		--[[memcpy(Materials + lVar15,&DefaultMaterial,0xa8);
