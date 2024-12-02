@@ -95,8 +95,7 @@ local page_size = info.dwPageSize
 
 _G["hello"] = function()
 	print("we are called\n") -- if we print too much the logs buffer will overflow and we die
-	while true do
-	end
+	ffi.cast("int *", 0)[0] = 0
 end -- this is the cell hook function
 
 local dbghelp = ffi.load("DbgHelp.dll")
@@ -138,14 +137,14 @@ M.post = function(api, config)
 
 		local function exception_handler(exception_info) -- do this only on 1 thread
 			if already_crash then
-				kernel32.TerminateProcess(kernel32.GetCurrentProcess(), 1) -- if we aren't closing just murder the process
+				--kernel32.TerminateProcess(kernel32.GetCurrentProcess(), 1) -- if we aren't closing just murder the process
 				-- this still doesn't work on other threads :sob:
 				return 0
 			end
 			already_crash = true -- hax to make the exception handler exiting not trigger the exception handler
 			local crash_filename = os.date("./dumps/Lua_Modloader_%Y_%m_%d_%H_%M_%S.dmp") -- crashes :angry:
 			create_crash_dump(exception_info, crash_filename)
-			kernel32.ExitProcess(1) -- it doesnt seem to like dying
+			-- kernel32.ExitProcess(1) -- it doesnt seem to like dying
 			return 0
 		end
 
