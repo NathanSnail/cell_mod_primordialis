@@ -6,8 +6,8 @@ local util = dofile("data/scripts/lua_mods/mods/ce/util.lua")
 ffi.cdef([[
 typedef int DWORD;
 typedef short WORD;
-typedef void* LPVOID;
-typedef int* DWORD_PTR;
+typedef void *LPVOID;
+typedef int *DWORD_PTR;
 
 typedef struct _SYSTEM_INFO {
 	union {
@@ -28,13 +28,19 @@ typedef struct _SYSTEM_INFO {
 	WORD wProcessorRevision;
 } SYSTEM_INFO, *LPSYSTEM_INFO;
 
-bool VirtualProtect(void* adress, size_t size, int new_protect, int* old_protect);
-void* VirtualAlloc(void* lpAddress, size_t dwSize, uint32_t flAllocationType, uint32_t flProtect);
+bool VirtualProtect(void *adress, size_t size, int new_protect, int* old_protect);
+void *VirtualAlloc(void* lpAddress, size_t dwSize, uint32_t flAllocationType, uint32_t flProtect);
 void GetSystemInfo(LPSYSTEM_INFO lpSystemInfo);
 int memcmp(const void *buffer1, const void *buffer2, size_t count);
 void *memcpy(void *dest, const void *src, size_t size);
 void *memset(void *ptr, int x, size_t n);
 void *GetModuleHandleA(char *name);
+void *malloc(size_t size);
+
+void *GetModuleHandleA(const char* lpModuleName);
+void *GetProcAddress(void* hModule, const char* lpProcName);
+
+LPVOID TlsGetValue(DWORD dwTlsIndex);
 ]])
 
 local info = ffi.new("SYSTEM_INFO")
@@ -42,9 +48,23 @@ ffi.C.GetSystemInfo(info)
 ---@diagnostic disable-next-line: undefined-field
 local page_size = info.dwPageSize
 
+_G["hello"] = function()
+	print("we are called")
+end -- this is the cell hook function
+
 M.post = function(api, config)
 	local old_creature_list = creature_list
 	creature_list = function(...)
+		local kernel32 = ffi.load("kernel32.dll")
+		local function cs(str)
+			return ffi.new("char[?]", #str + 1, str)
+		end
+		local get_value = ffi.cast("char *", kernel32.TlsGetValue)
+		local lua = kernel32.GetModuleHandleA(cs("lua51.dll"))
+		local get_field = kernel32.GetProcAddress(lua, cs("lua_getfield"))
+		local pcall = kernel32.GetProcAddress(lua, cs("lua_pcall"))
+		print("TLS: ", get_value, "\n")
+
 		---@type Patch
 		local patch = {
 			target = {
@@ -83,6 +103,58 @@ M.post = function(api, config)
 			0x40,
 			ffi.new("int[1]")
 		)
+
+		--stylua: ignore start
+		local data = {
+			0x48, 0xB9, 0x14, 0x74, 0x1D, 0x40, 0x01, 0x00, 0x00, 0x00, 0x8B, 0x09, 0x48, 0xB8,
+			0x10, 0x32, 0x54, 0x76, 0x98, 0xCA, 0xDB, 0xFE,
+			0xFF, 0xD0, 0x49, 0xB8,
+			0xEF, 0xCD, 0xAB, 0x89, 0x67, 0x45, 0x23, 0x01,
+			0xBA, 0xEE, 0xD8, 0xFF, 0xFF, 0x4C, 0x8B, 0x60, 0x18, 0x4C, 0x89, 0xE1, 0x48, 0xB8,
+			0xEF, 0xCD, 0xAB, 0x89, 0x67, 0x45, 0x23, 0x01,
+			0xFF, 0xD0, 0x4C, 0x89, 0xE1, 0xBA, 0x00, 0x00, 0x00, 0x00, 0x41, 0xB8, 0x00, 0x00, 0x00, 0x00, 0x41, 0xB9, 0x00, 0x00, 0x00, 0x00, 0x48, 0xB8,
+			0xEF, 0xCD, 0xAB, 0x89, 0x67, 0x45, 0x23, 0x01,
+			0xFF, 0xD0, 0xC3
+		}
+		--stylua: ignore end
+		local new_fn = ffi.cast("char *", ffi.C.VirtualAlloc(nil, #data, 0x3000, 0x40))
+		local str = ffi.C.malloc(0x100) -- fn name
+		ffi.C.memcpy(str, ffi.new("char[?]", 6, "hello"), 6)
+		print("str: ", str, "\n")
+		local function pointer_at_addr(ptr, shift)
+			local addr_str = tostring(ptr) -- luajit doesn't seem to have a good way to get addresses because its usually not valid if you use gc allocators, we are managing our own memory so its fine
+			local bytes = { 0, 0, 0, 0, 0, 0, 0, 0 }
+			local count = 1
+			local partial = ""
+			for i = #addr_str, 1, -1 do
+				local c = addr_str:sub(i, i)
+				if c == "x" then
+					break
+				end
+				partial = c .. partial
+				if #partial == 2 then
+					bytes[count] = tonumber(partial, 16)
+					count = count + 1
+					partial = ""
+				end
+			end
+			for i = shift, shift + 8 - 1 do
+				data[i] = bytes[i - shift + 1]
+			end
+		end
+		pointer_at_addr(get_value, 15)
+		pointer_at_addr(str, 27)
+		pointer_at_addr(get_field, 49)
+		pointer_at_addr(pcall, 81)
+		for k, v in ipairs(data) do
+			new_fn[k - 1] = v
+		end
+		print("new fn: ", new_fn, "\n")
+		for _, v in ipairs(data) do
+			print(string.format("%2x ", v))
+		end
+		print("\n")
+
 		util.apply_patch(patch, page_size)
 		io.popen("Z:\\home\\nathan\\Documents\\CE\\Cheat_Engine.exe")
 		local num_mats = ffi.cast("int *", 0x14022b420)
@@ -103,6 +175,7 @@ M.post = function(api, config)
 		spawn_rate_cutoff[usable_c] = spawn_rate_cutoff[usable_c - 1] + 100
 		print(usable_c, " ", spawn_rate_cutoff[usable_c - 1], " ", spawn_rate_cutoff[usable_c], "\n")
 		print(spawn_rate_cutoff + usable_c, "\n")
+		ffi.cast("char **", materials + mat_c * 0xa8 + 0x88)[0] = new_fn
 		--[[memcpy(Materials + lVar15,&DefaultMaterial,0xa8);
    uVar13 = IdStringToId("BODY");
    Materials[lVar15].id = uVar13;
