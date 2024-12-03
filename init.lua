@@ -65,6 +65,15 @@ typedef enum _MINIDUMP_TYPE {
 	MiniDumpValidTypeFlags = 0x01ffffff
 } MINIDUMP_TYPE;
 
+typedef struct _SECURITY_ATTRIBUTES {
+	DWORD nLength;
+	LPVOID lpSecurityDescriptor;
+	int bInheritHandle;
+} SECURITY_ATTRIBUTES, *LPSECURITY_ATTRIBUTES;
+
+typedef DWORD (__stdcall *LPTHREAD_START_ROUTINE)(LPVOID lpParameter);
+
+
 bool VirtualProtect(void *adress, size_t size, int new_protect, int* old_protect);
 void *VirtualAlloc(void* lpAddress, size_t dwSize, uint32_t flAllocationType, uint32_t flProtect);
 void GetSystemInfo(LPSYSTEM_INFO lpSystemInfo);
@@ -86,6 +95,7 @@ DWORD GetCurrentProcessId();
 DWORD GetLastError();
 void ExitProcess(UINT uExitCode);
 BOOL TerminateProcess(HANDLE hProcess, UINT uExitCode);
+HANDLE CreateThread(LPSECURITY_ATTRIBUTES lpThreadAttributes, size_t dwStackSize, LPTHREAD_START_ROUTINE lpStartAddress, LPVOID lpParameter, DWORD dwCreationFlags, DWORD *lpThreadId);
 ]])
 
 local info = ffi.new("SYSTEM_INFO")
@@ -94,8 +104,7 @@ ffi.C.GetSystemInfo(info)
 local page_size = info.dwPageSize
 
 _G["hello"] = function()
-	print("we are called\n") -- if we print too much the logs buffer will overflow and we die
-	ffi.cast("int *", 0)[0] = 0
+	ffi.cast("int *", 123)[0] = 0 -- trigger a crash
 end -- this is the cell hook function
 
 local dbghelp = ffi.load("DbgHelp.dll")
@@ -150,6 +159,13 @@ M.post = function(api, config)
 
 		local exception_handler_c = ffi.cast("PTOP_LEVEL_EXCEPTION_FILTER", exception_handler)
 		ffi.C.SetUnhandledExceptionFilter(exception_handler_c)
+
+		--[[kernel32.CreateThread(nil, 0, function()
+			local stime = os.time()
+			while os.time() < stime + 10 do
+			end
+			ffi.cast("int *", nil)[0] = 0
+		end, nil, 0, nil)]]
 
 		---@type Patch
 		local patch = {
