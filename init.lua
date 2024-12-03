@@ -96,6 +96,8 @@ DWORD GetLastError();
 void ExitProcess(UINT uExitCode);
 BOOL TerminateProcess(HANDLE hProcess, UINT uExitCode);
 HANDLE CreateThread(LPSECURITY_ATTRIBUTES lpThreadAttributes, size_t dwStackSize, LPTHREAD_START_ROUTINE lpStartAddress, LPVOID lpParameter, DWORD dwCreationFlags, DWORD *lpThreadId);
+
+int MessageBoxA(void *hWnd, const char *lpText, const char *lpCaption, unsigned int uType);
 ]])
 
 local info = ffi.new("SYSTEM_INFO")
@@ -109,6 +111,7 @@ end -- this is the cell hook function
 
 local dbghelp = ffi.load("DbgHelp.dll")
 local kernel32 = ffi.load("kernel32.dll")
+local user32 = ffi.load("user32.dll")
 local function cs(str)
 	return ffi.new("char[?]", #str + 1, str)
 end
@@ -145,6 +148,7 @@ M.post = function(api, config)
 		local already_crash = false
 
 		local function exception_handler(exception_info) -- do this only on 1 thread
+			user32.MessageBoxA(nil, cs("hi"), cs("other"), 0)
 			if already_crash then
 				--kernel32.TerminateProcess(kernel32.GetCurrentProcess(), 1) -- if we aren't closing just murder the process
 				-- this still doesn't work on other threads :sob:
