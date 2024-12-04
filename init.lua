@@ -109,15 +109,15 @@ _G["hello"] = function()
 	ffi.cast("int *", 123)[0] = 0 -- trigger a crash
 end -- this is the cell hook function
 
-local dbghelp = ffi.load("DbgHelp.dll")
-local kernel32 = ffi.load("kernel32.dll")
-local user32 = ffi.load("user32.dll")
 local function cs(str)
 	return ffi.new("char[?]", #str + 1, str)
 end
+local dbghelp = ffi.load("DbgHelp.dll")
+local kernel32 = ffi.load("kernel32.dll")
+local user32 = ffi.load("user32.dll")
 local lua = kernel32.GetModuleHandleA(cs("lua51.dll"))
-local get_value = ffi.cast("char *", kernel32.TlsGetValue)
 local get_field = kernel32.GetProcAddress(lua, cs("lua_getfield"))
+local get_value = ffi.cast("char *", kernel32.TlsGetValue)
 local call = kernel32.GetProcAddress(lua, cs("lua_call"))
 
 local function create_crash_dump(exception_info, dump_path)
