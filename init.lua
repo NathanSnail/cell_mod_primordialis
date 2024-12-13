@@ -262,7 +262,7 @@ M.post = function(api, config)
 		print("\n")
 
 		util.apply_patch(patch, page_size)
-		io.popen("Z:\\home\\nathan\\Documents\\CE\\Cheat_Engine.exe")
+		--io.popen("Z:\\home\\nathan\\Documents\\CE\\Cheat_Engine.exe")
 		local num_mats = ffi.cast("int *", 0x14022b420)
 		local mat_c = num_mats[0]
 		num_mats[0] = mat_c + 1
@@ -281,7 +281,7 @@ M.post = function(api, config)
 		spawn_rate_cutoff[usable_c] = spawn_rate_cutoff[usable_c - 1] + 100
 		print(usable_c, " ", spawn_rate_cutoff[usable_c - 1], " ", spawn_rate_cutoff[usable_c], "\n")
 		print(spawn_rate_cutoff + usable_c, "\n")
-		ffi.cast("char **", materials + mat_c * 0xa8 + 0x88)[0] = new_fn
+		-- ffi.cast("char **", materials + mat_c * 0xa8 + 0x88)[0] = new_fn
 		--[[memcpy(Materials + lVar15,&DefaultMaterial,0xa8);
    uVar13 = IdStringToId("BODY");
    Materials[lVar15].id = uVar13;
